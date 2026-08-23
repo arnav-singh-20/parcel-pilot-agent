@@ -44,7 +44,7 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open **http://localhost:8000**.
+Open **https://parcel-pilot-agent-2.onrender.com/**.
 
 Without a `GEMINI_API_KEY` set, the app still runs in a "mock mode" (canned
 text responses, no tool calls) purely so the server/UI can be smoke-tested; real
