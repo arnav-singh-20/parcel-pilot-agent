@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import base64
 from .tools import SessionContext, TOOL_SCHEMAS, READ_ONLY_TOOLS, ACTION_TOOLS, dispatch, AccessDenied
 from .prompts import build_system_prompt
 
@@ -85,58 +86,170 @@ def _to_gemini_tools():
     return [{"function_declarations": declarations}]
 
 
-def _messages_to_gemini_contents(messages: list):
-    """Converts the app's internal message list into Gemini `contents`,
-    tracking tool_use id -> name so tool_result blocks (which only carry the
-    id) can be turned into named functionResponse parts."""
+def _messages_to_gemini_contents(messages):
+    """Converts the app's internal message list into Gemini contents
+    while preserving thought signatures."""
+
     id_to_name = {}
     contents = []
+
     for m in messages:
+
         role = "model" if m["role"] == "assistant" else "user"
         content = m["content"]
+
         parts = []
+
         if isinstance(content, str):
-            parts.append({"text": content})
+
+            parts.append({
+                "text": content
+            })
+
         else:
+
             for block in content:
+
                 btype = block.get("type")
+
+                # -------------------------------------------------
+                # TEXT
+                # -------------------------------------------------
                 if btype == "text":
-                    parts.append({"text": block["text"]})
+
+                    part = {
+                        "text": block["text"]
+                    }
+
+                    # Preserve signature if Gemini attached one
+                    signature = block.get("thought_signature")
+
+                    if signature:
+                        try:
+                            signature = base64.b64decode(signature)
+                        except Exception:
+                            pass
+
+                        part["thought_signature"] = signature
+
+                    parts.append(part)
+
+                # -------------------------------------------------
+                # FUNCTION CALL
+                # -------------------------------------------------
                 elif btype == "tool_use":
+
                     id_to_name[block["id"]] = block["name"]
-                    parts.append({"function_call": {"name": block["name"], "args": block.get("input", {})}})
+
+                    part = {
+                        "function_call": {
+                            "name": block["name"],
+                            "args": block.get("input", {}),
+                        }
+                    }
+
+                    signature = block.get("thought_signature")
+
+                    if signature:
+                        try:
+                            signature = base64.b64decode(signature)
+                        except Exception:
+                            pass
+
+                        part["thought_signature"] = signature
+
+                    parts.append(part)
+
+                # -------------------------------------------------
+                # FUNCTION RESPONSE
+                # -------------------------------------------------
                 elif btype == "tool_result":
-                    name = id_to_name.get(block["tool_use_id"], "unknown_tool")
+
+                    name = id_to_name.get(
+                        block["tool_use_id"],
+                        "unknown_tool"
+                    )
+
                     raw = block.get("content", "{}")
+
                     try:
-                        payload = json.loads(raw) if isinstance(raw, str) else raw
+                        payload = (
+                            json.loads(raw)
+                            if isinstance(raw, str)
+                            else raw
+                        )
+
                     except (TypeError, ValueError):
-                        payload = {"result": raw}
+                        payload = {
+                            "result": raw
+                        }
+
                     if not isinstance(payload, dict):
-                        payload = {"result": payload}
-                    parts.append({"function_response": {"name": name, "response": payload}})
+                        payload = {
+                            "result": payload
+                        }
+
+                    parts.append({
+                        "function_response": {
+                            "name": name,
+                            "response": payload,
+                        }
+                    })
+
         if parts:
-            contents.append({"role": role, "parts": parts})
+            contents.append({
+                "role": role,
+                "parts": parts
+            })
+
     return contents
 
 
 def _gemini_response_to_content_blocks(response):
-    """Converts a Gemini response into the app's internal content-block shape."""
+    """Converts a Gemini response into the app's internal content-block shape
+    while preserving Gemini thought signatures."""
+
     blocks = []
+
     candidate = response.candidates[0] if response.candidates else None
+
     if not candidate or not candidate.content or not candidate.content.parts:
         return blocks
+
     for part in candidate.content.parts:
+        signature = getattr(part, "thought_signature", None)
+
+        if signature:
+
+            if isinstance(signature, bytes):
+                signature = base64.b64encode(signature).decode("utf-8")
+
         if getattr(part, "text", None):
-            blocks.append({"type": "text", "text": part.text})
+            block = {
+                "type": "text",
+                "text": part.text,
+            }
+
+            if signature:
+                block["thought_signature"] = signature
+
+            blocks.append(block)
+
         elif getattr(part, "function_call", None):
             fc = part.function_call
-            blocks.append({
+
+            block = {
                 "type": "tool_use",
                 "id": f"call_{uuid.uuid4().hex[:24]}",
                 "name": fc.name,
                 "input": dict(fc.args) if fc.args else {},
-            })
+            }
+
+            if signature:
+                block["thought_signature"] = signature
+
+            blocks.append(block)
+
     return blocks
 
 
