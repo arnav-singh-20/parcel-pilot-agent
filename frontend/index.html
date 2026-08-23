@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ParcelPilot Support Agent</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div id="root">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">Parcel<span>Pilot</span> Support</div>
+      <div class="tagline">AI agent console</div>
+    </div>
+    <div class="snapshot-chip" id="snapshotChip">snapshot: 2026-08-16 11:00 IST</div>
+  </div>
+  <div class="layout">
+    <div class="sidebar">
+      <div>
+        <h3>Session</h3>
+        <div class="mode-toggle">
+          <button id="modeCustomerBtn" class="active">Customer</button>
+          <button id="modeInternalBtn">Internal</button>
+        </div>
+      </div>
+
+      <div id="customerFields">
+        <div class="field">
+          <label class="field-label">Signed in as (account)</label>
+          <select id="accountSelect"></select>
+        </div>
+      </div>
+
+      <div id="internalFields" style="display:none;">
+        <div class="field">
+          <label class="field-label">Staff name</label>
+          <input type="text" id="staffNameInput" placeholder="e.g. Rohit" value="Rohit" />
+        </div>
+        <div class="field">
+          <label class="field-label">Role</label>
+          <select id="staffRoleSelect">
+            <option value="agent">Support agent</option>
+            <option value="manager">Manager</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="session-card" id="sessionSummary"></div>
+
+      <div class="nav-tabs">
+        <button id="tabChat" class="active">Chat</button>
+        <button id="tabDashboard" style="display:none;">Ops dashboard</button>
+        <button id="tabActionLog" style="display:none;">Action log</button>
+        <button id="resetBtn" style="margin-top:8px; color: var(--text-faint);">Reset conversation</button>
+      </div>
+    </div>
+
+    <div class="chat-pane" id="chatPane">
+      <div class="messages scrollbar-thin" id="messages"></div>
+      <div class="typing" id="typingIndicator" style="display:none;">agent is working…</div>
+      <div class="composer">
+        <input type="text" id="chatInput" placeholder="Ask about an order, policy, or ticket…" />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+
+    <div class="dashboard scrollbar-thin" id="dashboardPane" style="display:none;"></div>
+    <div class="dashboard scrollbar-thin" id="actionLogPane" style="display:none;"></div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
